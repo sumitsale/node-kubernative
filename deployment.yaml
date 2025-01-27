@@ -1,24 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: node-kubernative
+  name: sumit-ecr-deployment
   labels:
-    app: node-kubernative
+    app: sumit-ecr
 spec:
-  replicas: 2  # Number of desired pods
+  replicas: 2
   selector:
     matchLabels:
-      app: node-kubernative
+      app: sumit-ecr
   template:
     metadata:
       labels:
-        app: node-kubernative
+        app: sumit-ecr
     spec:
       containers:
-      - name: node-kubernative
-        image: sumitsale/node-kubernative:latest
+      - name: sumit-ecr-container
+        image: 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
         ports:
-        - containerPort: 3000
-        env:  # Optional: Add environment variables if required
-        - name: NODE_ENV
-          value: "production"
+        - containerPort: 80
