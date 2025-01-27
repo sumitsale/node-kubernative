@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-kubernative-service
+spec:
+  selector:
+    app: node-kubernative
+  ports:
+  - protocol: TCP
+    port: 80          # The port the service will listen on
+    targetPort: 3000  # The port your application exposes
+  type: NodePort       # Exposes the service on a port accessible from outside the cluster

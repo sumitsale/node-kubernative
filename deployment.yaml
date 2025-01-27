@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-kubernative
+  labels:
+    app: node-kubernative
+spec:
+  replicas: 2  # Number of desired pods
+  selector:
+    matchLabels:
+      app: node-kubernative
+  template:
+    metadata:
+      labels:
+        app: node-kubernative
+    spec:
+      containers:
+      - name: node-kubernative
+        image: sumitsale/node-kubernative:latest
+        ports:
+        - containerPort: 3000
+        env:  # Optional: Add environment variables if required
+        - name: NODE_ENV
+          value: "production"
