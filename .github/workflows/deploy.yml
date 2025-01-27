@@ -31,7 +31,7 @@ jobs:
     - name: Set up kubectl
       run: |
         mkdir -p ~/.kube  # Create the .kube directory
-        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config  # Decode and write kubeconfig
+        echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config  # Decode kubeconfig
         kubectl cluster-info  # Verify kubectl can connect to the cluster
 
     # Step 5: Deploy Kubernetes Manifests
