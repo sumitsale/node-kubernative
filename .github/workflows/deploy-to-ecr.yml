@@ -30,6 +30,6 @@ jobs:
     # Step 4: Build and Push Docker Image to ECR
     - name: Build and Push Docker Image
       run: |
-        ECR_URI=123456789012.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/node-kubernative
+        ECR_URI=476424248806.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/sumit-ecr
         docker build -t $ECR_URI:latest .
         docker push $ECR_URI:latest
