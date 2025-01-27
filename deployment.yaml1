@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sumit-ecr-deployment
+  labels:
+    app: sumit-ecr
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sumit-ecr
+  template:
+    metadata:
+      labels:
+        app: sumit-ecr
+    spec:
+      containers:
+      - name: sumit-ecr-container
+        image: 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+        ports:
+        - containerPort: 80
