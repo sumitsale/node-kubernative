@@ -3,10 +3,10 @@ name: Deploy Docker Image to AWS ECR and Kubernetes
 on:
   push:
     branches:
-      - main  # Trigger the workflow on push to the main branch
+      - main
 
 jobs:
-  deploy-to-ecr:
+  deploy-to-ecr-and-k8s:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,8 +34,27 @@ jobs:
         docker build -t $ECR_URI:latest .
         docker push $ECR_URI:latest
 
-    # Step 5: SSH into EC2 and Deploy to Kubernetes
-    - name: Deploy to Kubernetes on EC2
+    # Step 5: Upload Kubernetes YAML Files
+    - name: Upload Deployment YAML
+      uses: appleboy/scp-action@v0.1.1
+      with:
+        host: ${{ secrets.EC2_PUBLIC_IP }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: ./deployment.yaml
+        target: /home/ec2-user/deployment.yaml
+
+    - name: Upload Service YAML
+      uses: appleboy/scp-action@v0.1.1
+      with:
+        host: ${{ secrets.EC2_PUBLIC_IP }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: ./service.yaml
+        target: /home/ec2-user/service.yaml
+
+    # Step 6: SSH into EC2 and Deploy to Kubernetes
+    - name: Deploy to Kubernetes
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
@@ -51,6 +70,6 @@ jobs:
             --docker-password=$(aws ecr get-login-password --region ap-south-1) \
             --namespace default --dry-run=client -o yaml | kubectl apply -f -
           echo "Applying Kubernetes Deployment"
-          kubectl apply -f /path/to/deployment.yaml
+          kubectl apply -f /home/ec2-user/deployment.yaml
           echo "Applying Kubernetes Service"
-          kubectl apply -f /path/to/service.yaml
+          kubectl apply -f /home/ec2-user/service.yaml
