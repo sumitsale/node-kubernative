@@ -59,7 +59,11 @@ jobs:
           wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --no-tty --batch --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
 
           echo "Fixing broken dpkg state..."
-          sudo dpkg --configure -a
+          sudo dpkg --configure -a || true
+
+          echo "Cleaning up Elasticsearch state..."
+          sudo rm -f /etc/elasticsearch/elasticsearch.keystore.tmp || true
+          sudo dpkg --configure -a || true
 
           echo "Updating package lists..."
           sudo apt update -y
@@ -75,16 +79,4 @@ jobs:
           fi
 
           echo "Authenticating EC2 instance with ECR..."
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
-
-          echo "Pulling the Docker image from ECR..."
-          docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
-
-          echo "Stopping any existing container..."
-          docker stop sumit-ecr-container || true
-          docker rm sumit-ecr-container || true
-
-          echo "Starting the Docker container..."
-          docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
-
-          echo "Deployment Complete!"
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazona
