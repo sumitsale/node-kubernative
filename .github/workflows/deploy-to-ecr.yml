@@ -44,7 +44,7 @@ jobs:
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ec2-user  # Update to `ubuntu` if your EC2 instance uses Ubuntu
+        username: ubuntu  # Update to `ubuntu` if your EC2 instance uses Ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           set -x  # Enable command debugging
