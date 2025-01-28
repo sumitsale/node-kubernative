@@ -1,12 +1,12 @@
-name: Deploy Docker Image to AWS ECR and Kubernetes
+name: Deploy Docker Image to AWS ECR and EC2
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger workflow on push to the main branch
 
 jobs:
-  deploy-to-ecr-and-k8s:
+  deploy-to-ecr-and-ec2:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,3 +36,36 @@ jobs:
         docker build -t $ECR_URI:latest .
         echo "Pushing Docker Image to ECR..."
         docker push $ECR_URI:latest
+
+    # Step 5: SSH into EC2 and Deploy Docker Container
+    - name: Deploy Docker Container on EC2
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_PUBLIC_IP }}
+        username: ec2-user  # Replace with 'ubuntu' if your EC2 instance uses Ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "Updating EC2 instance..."
+          sudo yum update -y || sudo apt update -y
+
+          echo "Installing Docker (if not installed)..."
+          if ! [ -x "$(command -v docker)" ]; then
+            sudo yum install -y docker || sudo apt install -y docker.io
+            sudo systemctl start docker
+            sudo systemctl enable docker
+          fi
+
+          echo "Authenticating EC2 instance with ECR..."
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+
+          echo "Pulling the Docker image from ECR..."
+          docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Stopping any existing container..."
+          docker stop sumit-ecr-container || true
+          docker rm sumit-ecr-container || true
+
+          echo "Starting the Docker container..."
+          docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Deployment Complete!"
