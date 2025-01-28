@@ -92,13 +92,27 @@ jobs:
 
             echo "Deployment Complete!"
 
-      # Step 6: Update ECS Task Definition
+      # Step 5: Verify Task Definition Template File
+      - name: Verify Task Definition Template File
+        run: |
+          if [ -f task-definition-template.json ]; then
+            echo "task-definition-template.json file exists."
+          else
+            echo "task-definition-template.json file is missing!"
+            exit 1
+          fi
+
+      # Step 6: Debugging - List Directory Contents
+      - name: List Directory Contents
+        run: ls -la      
+
+      # Step 7: Update ECS Task Definition
       - name: Render ECS Task Definition
         id: render-task-definition
         run: |
           sed "s|<IMAGE_URI>|476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest|g" task-definition-template.json > task-definition.json
 
-      # Step 7: Deploy to Amazon ECS
+      # Step 8: Deploy to Amazon ECS
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
