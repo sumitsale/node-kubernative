@@ -51,7 +51,14 @@ jobs:
 
           echo "Updating EC2 instance..."
           sudo sed -i '/mongodb-org\/5.0/d' /etc/apt/sources.list /etc/apt/sources.list.d/*
+
+          echo "Removing old GPG key file (if exists)..."
+          sudo rm -f /usr/share/keyrings/mongodb-archive-keyring.gpg || true
+
+          echo "Downloading MongoDB GPG key..."
           wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --no-tty --batch --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
+
+          echo "Updating package lists..."
           sudo apt update -y
 
           echo "Installing Docker (if not installed)..."
