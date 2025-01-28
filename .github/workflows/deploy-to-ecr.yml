@@ -1,4 +1,4 @@
-name: Deploy Docker Image to AWS ECR and EC2 with Debugging
+name: Deploy Docker Image to AWS ECR and ECS with Debugging
 
 on:
   push:
@@ -6,89 +6,104 @@ on:
       - main
 
 jobs:
-  deploy-to-ec2:
+  deploy-to-ecs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Checkout the Code
-    - name: Checkout Code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 1
+      # Step 1: Checkout the Code
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
 
-    # Step 2: Configure AWS CLI
-    - name: Configure AWS CLI
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1
+      # Step 2: Configure AWS CLI
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
 
-    # Step 3: Log in to Amazon ECR
-    - name: Log in to Amazon ECR
-      run: |
-        echo "Authenticating with AWS ECR..."
-        aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+      # Step 3: Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        run: |
+          echo "Authenticating with AWS ECR..."
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
-    # Step 4: Build and Push Docker Image to ECR
-    - name: Build and Push Docker Image
-      run: |
-        echo "Building Docker Image..."
-        ECR_URI=476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr
-        docker build -t $ECR_URI:latest .
-        echo "Pushing Docker Image to ECR..."
-        docker push $ECR_URI:latest
+      # Step 4: Build and Push Docker Image to ECR
+      - name: Build and Push Docker Image
+        run: |
+          echo "Building Docker Image..."
+          ECR_URI=476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr
+          docker build -t $ECR_URI:latest .
+          echo "Pushing Docker Image to ECR..."
+          docker push $ECR_URI:latest
 
-    # Step 5: SSH into EC2 and Deploy Docker Container
-    - name: Deploy Docker Container on EC2
-      uses: appleboy/ssh-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          set -euxo pipefail  # Enable strict error handling and debugging
-          echo "Starting EC2 deployment script..."
+      # Step 5: SSH into EC2 and Deploy Docker Container
+      - name: Deploy Docker Container on EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euxo pipefail  # Enable strict error handling and debugging
+            echo "Starting EC2 deployment script..."
 
-          echo "Updating EC2 instance..."
-          sudo apt-get update -y
+            echo "Updating EC2 instance..."
+            sudo apt-get update -y
 
-          echo "Installing AWS CLI (if not installed)..."
-          if ! [ -x "$(command -v aws)" ]; then
-            sudo apt-get install -y unzip
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-          else
-            echo "AWS CLI is already installed."
-          fi
+            echo "Installing AWS CLI (if not installed)..."
+            if ! [ -x "$(command -v aws)" ]; then
+              sudo apt-get install -y unzip
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+              unzip awscliv2.zip
+              sudo ./aws/install
+            else
+              echo "AWS CLI is already installed."
+            fi
 
-          echo "Installing Docker (if not installed)..."
-          if ! [ -x "$(command -v docker)" ]; then
-            sudo apt-get install -y docker.io
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            echo "Docker installed successfully!"
-          else
-            echo "Docker is already installed."
-          fi
+            echo "Installing Docker (if not installed)..."
+            if ! [ -x "$(command -v docker)" ]; then
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              echo "Docker installed successfully!"
+            else
+              echo "Docker is already installed."
+            fi
 
-          echo "Adding user to the docker group..."
-          sudo usermod -aG docker $USER
-          newgrp docker
+            echo "Adding user to the docker group..."
+            sudo usermod -aG docker $USER
+            newgrp docker
 
-          echo "Authenticating EC2 instance with ECR..."
-          aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+            echo "Authenticating EC2 instance with ECR..."
+            aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
-          echo "Pulling the Docker image from ECR..."
-          sudo docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+            echo "Pulling the Docker image from ECR..."
+            sudo docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
-          echo "Stopping any existing container..."
-          sudo docker stop sumit-ecr-container || true
-          sudo docker rm sumit-ecr-container || true
+            echo "Stopping any existing container..."
+            sudo docker stop sumit-ecr-container || true
+            sudo docker rm sumit-ecr-container || true
 
-          echo "Starting the Docker container..."
-          sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+            echo "Starting the Docker container..."
+            sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
-          echo "Deployment Complete!"
-        debug: true
+            echo "Deployment Complete!"
+
+      # Step 6: Update ECS Task Definition
+      - name: Render ECS Task Definition
+        id: render-task-definition
+        run: |
+          sed "s|<IMAGE_URI>|476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest|g" task-definition-template.json > task-definition.json
+
+      # Step 7: Deploy to Amazon ECS
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          service: ${{ secrets.SERVICE_NAME }}
+          cluster: ${{ secrets.CLUSTER_NAME }}
+          wait-for-service-stability: true
+          debug: true
