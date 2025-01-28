@@ -73,18 +73,22 @@ jobs:
             echo "Docker is already installed."
           fi
 
+          echo "Adding user to the docker group..."
+          sudo usermod -aG docker $USER
+          newgrp docker
+
           echo "Authenticating EC2 instance with ECR..."
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+          aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
           echo "Pulling the Docker image from ECR..."
-          docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+          sudo docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
           echo "Stopping any existing container..."
-          docker stop sumit-ecr-container || true
-          docker rm sumit-ecr-container || true
+          sudo docker stop sumit-ecr-container || true
+          sudo docker rm sumit-ecr-container || true
 
           echo "Starting the Docker container..."
-          docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+          sudo docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
           echo "Deployment Complete!"
         debug: true
