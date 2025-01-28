@@ -1,4 +1,4 @@
-name: Deploy Docker Image to AWS ECR and ECS with Debugging
+name: Deploy Docker Image to AWS ECR, EC2, and ECS with Debugging
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  deploy-to-ecs:
+  deploy-to-ecs-and-ec2:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,21 @@ jobs:
         with:
           fetch-depth: 1
 
-      # Step 2: Configure AWS CLI
+      # Step 2: Verify Task Definition Template File
+      - name: Verify Task Definition Template File
+        run: |
+          if [ -f task-definition-template.json ]; then
+            echo "task-definition-template.json file exists."
+          else
+            echo "task-definition-template.json file is missing!"
+            exit 1
+          fi
+
+      # Step 3: List Directory Contents
+      - name: List Directory Contents
+        run: ls -al
+
+      # Step 4: Configure AWS CLI
       - name: Configure AWS CLI
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -24,13 +38,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      # Step 3: Log in to Amazon ECR
+      # Step 5: Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
           echo "Authenticating with AWS ECR..."
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
-      # Step 4: Build and Push Docker Image to ECR
+      # Step 6: Build and Push Docker Image to ECR
       - name: Build and Push Docker Image
         run: |
           echo "Building Docker Image..."
@@ -39,16 +53,16 @@ jobs:
           echo "Pushing Docker Image to ECR..."
           docker push $ECR_URI:latest
 
-      # Step 5: SSH into EC2 and Deploy Docker Container
-      - name: Deploy Docker Container on EC2
+      # Step 7: Deploy Docker Image on EC2
+      - name: Deploy Docker Image on EC2
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.EC2_PUBLIC_IP }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            set -euxo pipefail  # Enable strict error handling and debugging
-            echo "Starting EC2 deployment script..."
+            set -euxo pipefail
+            echo "Starting EC2 deployment..."
 
             echo "Updating EC2 instance..."
             sudo apt-get update -y
@@ -68,14 +82,9 @@ jobs:
               sudo apt-get install -y docker.io
               sudo systemctl start docker
               sudo systemctl enable docker
-              echo "Docker installed successfully!"
             else
               echo "Docker is already installed."
             fi
-
-            echo "Adding user to the docker group..."
-            sudo usermod -aG docker $USER
-            newgrp docker
 
             echo "Authenticating EC2 instance with ECR..."
             aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
@@ -87,32 +96,22 @@ jobs:
             sudo docker stop sumit-ecr-container || true
             sudo docker rm sumit-ecr-container || true
 
-            echo "Starting the Docker container..."
+            echo "Starting the Docker container on EC2..."
             sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
-            echo "Deployment Complete!"
+            echo "EC2 Deployment Complete!"
 
-      # Step 5: Verify Task Definition Template File
-      - name: Verify Task Definition Template File
-        run: |
-          if [ -f task-definition-template.json ]; then
-            echo "task-definition-template.json file exists."
-          else
-            echo "task-definition-template.json file is missing!"
-            exit 1
-          fi
-
-      # Step 6: Debugging - List Directory Contents
-      - name: List Directory Contents
-        run: ls -la      
-
-      # Step 7: Update ECS Task Definition
+      # Step 8: Render ECS Task Definition
       - name: Render ECS Task Definition
         id: render-task-definition
         run: |
           sed "s|<IMAGE_URI>|476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest|g" task-definition-template.json > task-definition.json
 
-      # Step 8: Deploy to Amazon ECS
+      # Step 9: List Directory After Rendering Task Definition
+      - name: List Directory After Rendering
+        run: ls -al
+
+      # Step 10: Deploy to Amazon ECS
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
