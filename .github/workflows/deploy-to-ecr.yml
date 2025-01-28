@@ -1,18 +1,20 @@
-name: Deploy Docker Image to AWS ECR and EC2
+name: Deploy Docker Image to AWS ECR and EC2 with Debugging
 
 on:
   push:
     branches:
-      - main  # Trigger workflow on push to the main branch
+      - main
 
 jobs:
-  deploy-to-ecr-and-ec2:
+  deploy-to-ec2:
     runs-on: ubuntu-latest
 
     steps:
     # Step 1: Checkout the Code
     - name: Checkout Code
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
 
     # Step 2: Configure AWS CLI
     - name: Configure AWS CLI
@@ -22,7 +24,7 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
-    # Step 3: Log in to AWS ECR
+    # Step 3: Log in to ECR
     - name: Log in to Amazon ECR
       run: |
         echo "Authenticating with AWS ECR..."
@@ -42,9 +44,10 @@ jobs:
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ec2-user  # Replace with 'ubuntu' if your EC2 instance uses Ubuntu
+        username: ec2-user  # Update to `ubuntu` if your EC2 instance uses Ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          set -x  # Enable command debugging
           echo "Updating EC2 instance..."
           sudo yum update -y || sudo apt update -y
 
@@ -55,11 +58,17 @@ jobs:
             sudo systemctl enable docker
           fi
 
+          echo "Checking Docker status..."
+          sudo systemctl status docker || true
+
           echo "Authenticating EC2 instance with ECR..."
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
           echo "Pulling the Docker image from ECR..."
           docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Checking if a container is already running..."
+          docker ps -a || true
 
           echo "Stopping any existing container..."
           docker stop sumit-ecr-container || true
@@ -69,3 +78,9 @@ jobs:
           docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
           echo "Deployment Complete!"
+          echo "Listing running containers..."
+          docker ps
+
+          echo "Checking container logs..."
+          docker logs sumit-ecr-container || true
+        debug: true
