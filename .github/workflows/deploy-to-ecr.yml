@@ -47,30 +47,28 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          set -e  # Stop the script on the first error
+          set -euxo pipefail  # Enable strict error handling and debugging
+          echo "Starting EC2 deployment script..."
 
           echo "Updating EC2 instance..."
-          sudo sed -i '/mongodb-org\/5.0/d' /etc/apt/sources.list /etc/apt/sources.list.d/*
+          timeout 10m sudo apt-get update || { echo "Update failed, exiting."; exit 1; }
 
           echo "Removing old GPG key file (if exists)..."
           sudo rm -f /usr/share/keyrings/mongodb-archive-keyring.gpg || true
 
           echo "Downloading MongoDB GPG key..."
-          wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --no-tty --batch --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
+          timeout 2m wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --no-tty --batch --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
 
           echo "Fixing broken dpkg state..."
-          sudo dpkg --configure -a || true
+          timeout 5m sudo dpkg --configure -a || true
 
           echo "Cleaning up Elasticsearch state..."
           sudo rm -f /etc/elasticsearch/elasticsearch.keystore.tmp || true
-          sudo dpkg --configure -a || true
-
-          echo "Updating package lists..."
-          sudo apt update -y
+          timeout 5m sudo dpkg --configure -a || true
 
           echo "Installing Docker (if not installed)..."
           if ! [ -x "$(command -v docker)" ]; then
-            sudo apt install -y docker.io
+            timeout 10m sudo apt-get install -y docker.io
             sudo systemctl start docker
             sudo systemctl enable docker
             echo "Docker installed successfully!"
@@ -79,4 +77,17 @@ jobs:
           fi
 
           echo "Authenticating EC2 instance with ECR..."
-          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazona
+          timeout 2m aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+
+          echo "Pulling the Docker image from ECR..."
+          timeout 5m docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Stopping any existing container..."
+          docker stop sumit-ecr-container || true
+          docker rm sumit-ecr-container || true
+
+          echo "Starting the Docker container..."
+          timeout 5m docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Deployment Complete!"
+        debug: true
