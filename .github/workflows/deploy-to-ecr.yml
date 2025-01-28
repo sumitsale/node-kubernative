@@ -18,13 +18,7 @@ jobs:
 
       # Step 2: Verify Task Definition Template File
       - name: Verify Task Definition Template File
-        run: |
-          if [ -f task-definition-template.json ]; then
-            echo "task-definition-template.json file exists."
-          else
-            echo "task-definition-template.json file is missing!"
-            exit 1
-          fi
+        run: ls -ltrha
 
       # Step 3: List Directory Contents
       - name: List Directory Contents
