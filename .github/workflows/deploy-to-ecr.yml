@@ -48,52 +48,58 @@ jobs:
           docker push $ECR_URI:latest
 
       # Step 7: Deploy Docker Image on EC2
-      - name: Deploy Docker Image on EC2
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_PUBLIC_IP }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -euxo pipefail
-            echo "Starting EC2 deployment..."
+#      - name: Deploy Docker Image on EC2
+#        uses: appleboy/ssh-action@v0.1.7
+#        with:
+#          host: ${{ secrets.EC2_PUBLIC_IP }}
+#          username: ubuntu
+#          key: ${{ secrets.EC2_SSH_KEY }}
+#          script: |
+#            set -euxo pipefail
+#            echo "Starting EC2 deployment..."#
 
-            echo "Updating EC2 instance..."
-            sudo apt-get update -y
+#            echo "Updating EC2 instance..."
+#            sudo apt-get update -y#
 
-            echo "Installing AWS CLI (if not installed)..."
-            if ! [ -x "$(command -v aws)" ]; then
-              sudo apt-get install -y unzip
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install
-            else
-              echo "AWS CLI is already installed."
-            fi
+#            echo "Installing AWS CLI (if not installed)..."
+#            if ! [ -x "$(command -v aws)" ]; then
+#              sudo apt-get install -y unzip
+#              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+#              unzip awscliv2.zip
+#              sudo ./aws/install
+#            else
+#              echo "AWS CLI is already installed."
+#            fi#
 
-            echo "Installing Docker (if not installed)..."
-            if ! [ -x "$(command -v docker)" ]; then
-              sudo apt-get install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-            else
-              echo "Docker is already installed."
-            fi
+#            echo "Installing Docker (if not installed)..."
+#            if ! [ -x "$(command -v docker)" ]; then
+#              sudo apt-get install -y docker.io
+#              sudo systemctl start docker
+#              sudo systemctl enable docker
+#            else
+#              echo "Docker is already installed."
+#            fi#
 
-            echo "Authenticating EC2 instance with ECR..."
-            aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
+#            echo "Authenticating EC2 instance with ECR..."
+#            aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com#
 
-            echo "Pulling the Docker image from ECR..."
-            sudo docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+#            echo "Pulling the Docker image from ECR..."
+#            sudo docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest#
 
-            echo "Stopping any existing container..."
-            sudo docker stop sumit-ecr-container || true
-            sudo docker rm sumit-ecr-container || true
+#            echo "Stopping any existing container..."
+#            sudo docker stop sumit-ecr-container || true
+#            sudo docker rm sumit-ecr-container || true#
 
-            echo "Starting the Docker container on EC2..."
-            sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+#            echo "Starting the Docker container on EC2..."
+#            sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest#
 
-            echo "EC2 Deployment Complete!"
+#            echo "EC2 Deployment Complete!"
+
+
+
+      # Step 2: Verify Task Definition Template File
+      - name: Verify Task Definition Template File
+        run: cat task-definition-template.json
 
       # Step 8: Render ECS Task Definition
       - name: Render ECS Task Definition
