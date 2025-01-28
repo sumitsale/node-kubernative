@@ -3,7 +3,7 @@ name: Deploy Docker Image to AWS ECR and EC2 with Debugging
 on:
   push:
     branches:
-      - main  # Trigger workflow on push to the main branch
+      - main
 
 jobs:
   deploy-to-ec2:
@@ -44,17 +44,19 @@ jobs:
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ubuntu  # Use `ec2-user` for Amazon Linux
+        username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           set -e  # Stop the script on the first error
 
           echo "Updating EC2 instance..."
-          sudo apt update -y || sudo yum update -y
+          sudo sed -i '/mongodb-org\/5.0/d' /etc/apt/sources.list /etc/apt/sources.list.d/*
+          wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-archive-keyring.gpg
+          sudo apt update -y
 
           echo "Installing Docker (if not installed)..."
           if ! [ -x "$(command -v docker)" ]; then
-            sudo apt install -y docker.io || sudo yum install -y docker
+            sudo apt install -y docker.io
             sudo systemctl start docker
             sudo systemctl enable docker
             echo "Docker installed successfully!"
@@ -62,17 +64,11 @@ jobs:
             echo "Docker is already installed."
           fi
 
-          echo "Checking Docker status..."
-          sudo systemctl status docker || true
-
           echo "Authenticating EC2 instance with ECR..."
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
           echo "Pulling the Docker image from ECR..."
           docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
-
-          echo "Checking if a container is already running..."
-          docker ps -a || true
 
           echo "Stopping any existing container..."
           docker stop sumit-ecr-container || true
@@ -82,21 +78,3 @@ jobs:
           docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
           echo "Deployment Complete!"
-          echo "Listing running containers..."
-          docker ps
-
-          echo "Checking container logs..."
-          docker logs sumit-ecr-container || true
-        debug: true
-
-    # Step 6: Verify Application Health
-    - name: Health Check
-      uses: appleboy/ssh-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          echo "Performing health check..."
-          curl -f http://localhost:80 || echo "Application is not responding."
-        debug: true
