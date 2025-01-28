@@ -88,7 +88,7 @@ jobs:
           sudo docker rm sumit-ecr-container || true
 
           echo "Starting the Docker container..."
-          sudo docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+          sudo docker run -d --name sumit-ecr-container -p 80:3000 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
 
           echo "Deployment Complete!"
         debug: true
