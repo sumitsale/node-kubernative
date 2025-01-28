@@ -1,12 +1,12 @@
-name: Deploy Docker Image to AWS ECR and Kubernetes
+name: Deploy ECR Image to EC2
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger on push to the main branch
 
 jobs:
-  deploy-to-ecr-and-k8s:
+  deploy-to-ec2:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,64 +22,39 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
-    # Step 3: Log in to AWS ECR
+    # Step 3: Log in to ECR
     - name: Log in to Amazon ECR
       run: |
         echo "Authenticating with AWS ECR..."
         aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
 
-    # Step 4: Build and Push Docker Image to ECR
-    - name: Build and Push Docker Image
-      run: |
-        echo "Building Docker Image..."
-        ECR_URI=476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr
-        docker build -t $ECR_URI:latest .
-        echo "Pushing Docker Image to ECR..."
-        docker push $ECR_URI:latest
-
-    # Step 5: Upload Kubernetes YAML Files to EC2
-    - name: Upload Deployment YAML
-      uses: appleboy/scp-action@v0.1.1
-      with:
-        host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ec2-user  # Update if your EC2 instance uses a different username (e.g., ubuntu)
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: ./deployment.yaml
-        target: /home/ec2-user/deployment.yaml
-        debug: true  # Enable detailed logging for SCP
-
-    - name: Upload Service YAML
-      uses: appleboy/scp-action@v0.1.1
-      with:
-        host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: ./service.yaml
-        target: /home/ec2-user/service.yaml
-        debug: true
-
-    # Step 6: SSH into EC2 and Deploy to Kubernetes
-    - name: Deploy to Kubernetes
+    # Step 4: SSH into EC2 and Deploy the Docker Container
+    - name: Deploy Docker Container on EC2
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ec2-user
+        username: ubuntu  # Update if using Ubuntu or other OS (e.g., ubuntu)
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          set -x  # Enable shell debugging
-          echo "Authenticating with AWS ECR..."
+          echo "Updating EC2 instance..."
+          sudo yum update -y || sudo apt update -y
+
+          echo "Installing Docker (if not installed)..."
+          if ! [ -x "$(command -v docker)" ]; then
+            sudo yum install -y docker || sudo apt install -y docker.io
+            sudo systemctl start docker
+            sudo systemctl enable docker
+          fi
+
+          echo "Authenticating EC2 instance with ECR..."
           aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 476424248806.dkr.ecr.ap-south-1.amazonaws.com
-          
-          echo "Creating Kubernetes ImagePullSecrets..."
-          kubectl create secret docker-registry ecr-registry-secret \
-            --docker-server=476424248806.dkr.ecr.ap-south-1.amazonaws.com \
-            --docker-username=AWS \
-            --docker-password=$(aws ecr get-login-password --region ap-south-1) \
-            --namespace default --dry-run=client -o yaml | kubectl apply -f -
-          
-          echo "Applying Kubernetes Deployment..."
-          kubectl apply -f /home/ec2-user/deployment.yaml
-          
-          echo "Applying Kubernetes Service..."
-          kubectl apply -f /home/ec2-user/service.yaml
-        debug: true  # Enable detailed logging for SSH
+
+          echo "Pulling the Docker image from ECR..."
+          docker pull 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Running the Docker container..."
+          docker stop sumit-ecr-container || true
+          docker rm sumit-ecr-container || true
+          docker run -d --name sumit-ecr-container -p 80:80 476424248806.dkr.ecr.ap-south-1.amazonaws.com/sumit-ecr:latest
+
+          echo "Deployment Complete!"
