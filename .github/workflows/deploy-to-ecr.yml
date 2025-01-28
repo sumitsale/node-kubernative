@@ -3,7 +3,7 @@ name: Deploy Docker Image to AWS ECR and EC2 with Debugging
 on:
   push:
     branches:
-      - main
+      - main  # Trigger workflow on push to the main branch
 
 jobs:
   deploy-to-ec2:
@@ -24,7 +24,7 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
-    # Step 3: Log in to ECR
+    # Step 3: Log in to Amazon ECR
     - name: Log in to Amazon ECR
       run: |
         echo "Authenticating with AWS ECR..."
@@ -44,18 +44,22 @@ jobs:
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.EC2_PUBLIC_IP }}
-        username: ubuntu  # Update to `ubuntu` if your EC2 instance uses Ubuntu
+        username: ubuntu  # Use `ec2-user` for Amazon Linux
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          set -x  # Enable command debugging
+          set -e  # Stop the script on the first error
+
           echo "Updating EC2 instance..."
-          sudo yum update -y || sudo apt update -y
+          sudo apt update -y || sudo yum update -y
 
           echo "Installing Docker (if not installed)..."
           if ! [ -x "$(command -v docker)" ]; then
-            sudo yum install -y docker || sudo apt install -y docker.io
+            sudo apt install -y docker.io || sudo yum install -y docker
             sudo systemctl start docker
             sudo systemctl enable docker
+            echo "Docker installed successfully!"
+          else
+            echo "Docker is already installed."
           fi
 
           echo "Checking Docker status..."
@@ -83,4 +87,16 @@ jobs:
 
           echo "Checking container logs..."
           docker logs sumit-ecr-container || true
+        debug: true
+
+    # Step 6: Verify Application Health
+    - name: Health Check
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_PUBLIC_IP }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          echo "Performing health check..."
+          curl -f http://localhost:80 || echo "Application is not responding."
         debug: true
